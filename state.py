@@ -32,11 +32,15 @@ class MachineOptions(object):
   states = {}
 
 class MachineMeta(type):
+
+  # When a class is constructed generate a list of it's states
   def __new__(cls, name, bases, attrs):
     new_class = super(MachineMeta, cls).__new__(cls, name, bases, attrs)
     module = attrs.pop('__module__')
+    # Attach an options class to hold meta information
     new_class._meta = MachineOptions()
     
+    # Loop through all the attributes and add states to the meta
     for obj_name, obj in attrs.items():
       is_state = isinstance(obj, StateClass)
       if is_state:
@@ -46,6 +50,7 @@ class MachineMeta(type):
 
 class Machine(object):
   __metaclass__ = MachineMeta
+  # Holds an array of every state we've been to
   _states = []
   on_transition = lambda x, y, z:x
   on_state_change = lambda x, y: x
@@ -56,16 +61,19 @@ class Machine(object):
     if state:
       self._states = state
 
+    # The meta class gives us a list of all our states
     for name, state in self._meta.states.iteritems():
       transitions = state.transitions
       def mapper(x):
         if isinstance(x, Transition):
           return x
         return Transition(state=getattr(self, x))
+      # If needed, construct a `Tranisitions` object from an array
       if (transitions and 
           not callable(transitions) and 
           not isinstance(transitions, Transitions)):
         transitions = Transitions(*map(mapper, transitions))
+
       setattr(state, 'name', name)
       setattr(state, 'transitions', transitions)
       setattr(self, name, state)
@@ -91,6 +99,7 @@ class Machine(object):
     try:
       to_result = to_state_class.enter(self)
       self._states.append(to_state_class.__name__)
+      # Fire listening events
       self.on_transition(from_result, to_result)
       self.on_state_change(self._states)
     # Allow transitions to block beind transitioned to
@@ -115,7 +124,6 @@ class Machine(object):
       return x
     return map(mapper, transitions)
 
-
 def State(*args, **kwargs):
   return StateClass(**kwargs)
 
@@ -136,6 +144,7 @@ class Transitions(OrderedDict):
       if isinstance(x, Transition):
         return x
       return Transition(state=x)
+    # Take in a value and auto generate a key based on the alphabet
     self[self.lowercase.next()] = transition_factory(value)
     return self
 
@@ -145,7 +154,6 @@ class Transition(dict):
     return str(self['title'])
 
   def __init__(self, *args, **kwargs):
-    # import pdb;pdb.set_trace()
     # If given a title explicity use it, otherwise grab the states default
     kwargs['title'] = kwargs.get('title', getattr(kwargs.get('state'), 'title'))
     return super(Transition, self).__init__(*args, **kwargs)
