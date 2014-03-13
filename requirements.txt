@@ -1,4 +1,4 @@
 flask
-twillio
+twilio
 gevent
 gunicorn
